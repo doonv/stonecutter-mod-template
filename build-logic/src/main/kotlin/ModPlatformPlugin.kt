@@ -135,7 +135,7 @@ abstract class ModPlatformPlugin @Inject constructor() : Plugin<Project> {
 		}
 		val generateTask = tasks.register<GenerateModManifestTask>("generateModManifest") {
 			content.set(ctx.loader.generateManifest(ctx))
-			outputFile.set(layout.buildDirectory.file("generated/modManifest/${ctx.loader.modManifestPath}"))
+			outputFile.set(layout.buildDirectory.file("generated/modManifest/${ctx.loader.modManifestPath(ctx)}"))
 		}
 
 		the<JavaPluginExtension>().sourceSets.named("main") { resources.srcDir(manifestOutputDir) }
@@ -144,7 +144,7 @@ abstract class ModPlatformPlugin @Inject constructor() : Plugin<Project> {
 
 	private fun Project.configureProcessResources(ctx: Context) {
 		val javaVersionValue = "JAVA_${ctx.javaVersion.majorVersion}"
-		val excluded = ctx.loader.excludedResources
+		val excluded = ctx.loader.excludedResources(ctx)
 		tasks.named<ProcessResources>("processResources") {
 			dependsOn(tasks.named("stonecutterGenerate"), "kspKotlin")
 			filesMatching("*.mixins.json") {

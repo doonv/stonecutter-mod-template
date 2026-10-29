@@ -9,8 +9,8 @@ import org.gradle.api.NamedDomainObjectContainer
 import java.util.*
 
 sealed class Loader(val id: String) {
-	abstract val modManifestPath: String
-	abstract val excludedResources: List<String>
+	abstract fun modManifestPath(ctx: Context): String
+	abstract fun excludedResources(ctx: Context): List<String>
 
 	open val isFabricLike: Boolean = false
 
@@ -18,8 +18,8 @@ sealed class Loader(val id: String) {
 
 	object Fabric : Loader("fabric") {
 		override val isFabricLike = true
-		override val modManifestPath = "fabric.mod.json"
-		override val excludedResources = listOf(
+		override fun modManifestPath(ctx: Context) = "fabric.mod.json"
+		override fun excludedResources(ctx: Context) = listOf(
 			"META-INF/mods.toml", "META-INF/neoforge.mods.toml", "aw/*.cfg", ".cache", "pack.mcmeta"
 		)
 
@@ -71,7 +71,7 @@ sealed class Loader(val id: String) {
 	}
 
 	sealed class ForgeLike(id: String) : Loader(id) {
-		override val excludedResources = listOf(
+		override fun excludedResources(ctx: Context) = listOf(
 			"fabric.mod.json", "aw/*.accesswidener", ".cache"
 		)
 
@@ -124,13 +124,27 @@ sealed class Loader(val id: String) {
 	}
 
 	object NeoForge : ForgeLike("neoforge") {
-		override val modManifestPath = "META-INF/neoforge.mods.toml"
-		override val excludedResources = (super.excludedResources + "META-INF/mods.toml") + "pack.mcmeta"
+		/**
+		 * NeoForge only started using `neoforge.mods.toml` in 1.20.5.
+		 */
+		private fun usesNeoForgeManifest(ctx: Context) =
+			ctx.stonecutter.eval(ctx.currentMcVersion, ">=1.20.5")
+
+		override fun modManifestPath(ctx: Context) =
+			if (usesNeoForgeManifest(ctx)) "META-INF/neoforge.mods.toml" else "META-INF/mods.toml"
+
+		override fun excludedResources(ctx: Context) = buildList {
+			addAll(super.excludedResources(ctx))
+			add(if (usesNeoForgeManifest(ctx)) "META-INF/mods.toml" else "META-INF/neoforge.mods.toml")
+			add("pack.mcmeta")
+		}
 	}
 
 	object Forge : ForgeLike("forge") {
-		override val modManifestPath = "META-INF/mods.toml"
-		override val excludedResources = super.excludedResources + "META-INF/neoforge.mods.toml"
+		override fun modManifestPath(ctx: Context) = "META-INF/mods.toml"
+		override fun excludedResources(ctx: Context) =
+			super.excludedResources(ctx) + "META-INF/neoforge.mods.toml"
+
 		val mixinConfigAttribute = "MixinConfigs"
 	}
 
